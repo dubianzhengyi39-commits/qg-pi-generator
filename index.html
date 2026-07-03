@@ -333,18 +333,24 @@
     .page-inner{
       padding:12mm 11.5mm 11mm;
     }
+    .brand-block{
+      border:1.5px solid #111;
+      border-bottom:none;
+      padding:2mm 4mm 1.8mm;
+      margin-bottom:0;
+    }
     .top-brand{
       text-align:center;
       font-size:24px;
       line-height:1.08;
-      margin-top:-1mm;
-      margin-bottom:2.5mm;
+      margin:0;
     }
     .top-contact{
       text-align:center;
       font-size:13px;
       line-height:1.2;
-      margin-bottom:4mm;
+      margin-top:2mm;
+      margin-bottom:0;
     }
     .invoice-title{
       text-align:center;
@@ -1010,8 +1016,10 @@
         </tr>
       `).join("");
       $("#preview").innerHTML = `
-        <div class="top-brand">${escapeHtml(state.seller.name)}</div>
-        <div class="top-contact">Contact:${escapeHtml(state.seller.contact)}&nbsp;&nbsp; WeChat:${escapeHtml(state.seller.wechat)}&nbsp;&nbsp; Email: ${escapeHtml(state.seller.email)}</div>
+        <div class="brand-block">
+          <div class="top-brand">${escapeHtml(state.seller.name)}</div>
+          <div class="top-contact">Contact:${escapeHtml(state.seller.contact)}&nbsp;&nbsp; WeChat:${escapeHtml(state.seller.wechat)}&nbsp;&nbsp; Email: ${escapeHtml(state.seller.email)}</div>
+        </div>
         <table class="info-table">
           <tr class="meta">
             <td colspan="2">
