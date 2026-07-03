@@ -1,0 +1,1606 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PROFORMA INVOICE 形式发票生成工具</title>
+  <style>
+    :root{
+      --bg:#eef2f6;
+      --panel:#ffffff;
+      --ink:#1b2430;
+      --muted:#667084;
+      --line:#c8d1dc;
+      --accent:#8fb0d9;
+      --accent-2:#7aa1d0;
+      --soft:#f7f9fc;
+      --warn:#b42318;
+      --shadow:0 18px 40px rgba(16,24,40,.08);
+      --radius:16px;
+      --page-w:210mm;
+      --page-h:297mm;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      color:var(--ink);
+      font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Source Han Sans SC",Arial,Helvetica,sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(143,176,217,.18), transparent 24%),
+        radial-gradient(circle at right 18%, rgba(122,161,208,.12), transparent 16%),
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+    }
+    button,select,input,textarea{
+      font:inherit;
+    }
+    .app{
+      display:grid;
+      grid-template-columns:minmax(430px, 520px) minmax(0, 1fr);
+      gap:16px;
+      padding:16px;
+      height:100%;
+      min-height:100vh;
+    }
+    .panel{
+      background:var(--panel);
+      border:1px solid rgba(200,209,220,.85);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      min-height:0;
+    }
+    .editor{
+      display:flex;
+      flex-direction:column;
+    }
+    .editor-header{
+      padding:16px 16px 12px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    }
+    .title{
+      margin:0;
+      font-family:"Times New Roman", Times, serif;
+      font-size:20px;
+      letter-spacing:.04em;
+      font-weight:700;
+      text-transform:none;
+    }
+    .subtitle{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.4;
+    }
+    .editor-body{
+      padding:12px 12px 92px;
+      overflow:auto;
+      flex:1;
+    }
+    .section{
+      border:1px solid var(--line);
+      border-radius:14px;
+      margin-bottom:12px;
+      background:#fff;
+      overflow:hidden;
+    }
+    .section h2{
+      margin:0;
+      padding:10px 12px;
+      font-size:12px;
+      letter-spacing:.08em;
+      text-transform:none;
+      background:var(--soft);
+      border-bottom:1px solid var(--line);
+    }
+    .section-content{
+      padding:12px;
+    }
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    .basic-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:12px;
+      align-items:start;
+    }
+    .basic-grid .field{
+      min-width:0;
+    }
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:10px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:0;
+    }
+    .field label{
+      font-size:12px;
+      color:#243041;
+      font-weight:700;
+    }
+    .required::after{
+      content:" *";
+      color:var(--warn);
+      font-weight:800;
+    }
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      border:1px solid #c8d1dc;
+      border-radius:10px;
+      padding:10px 11px;
+      background:#fff;
+      color:var(--ink);
+      outline:none;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .field textarea{
+      resize:vertical;
+      min-height:82px;
+      line-height:1.45;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus{
+      border-color:var(--accent-2);
+      box-shadow:0 0 0 3px rgba(122,161,208,.12);
+    }
+    .field input[readonly]{
+      background:#f7f9fc;
+      color:#374151;
+    }
+    .hint{
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.4;
+      margin-top:4px;
+    }
+    .inline-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+    .history-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .history-select{
+      min-height:42px;
+    }
+    .history-meta{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.45;
+      padding:8px 10px;
+      border:1px dashed var(--line);
+      border-radius:10px;
+      background:#fbfdff;
+    }
+    .hidden-file{
+      display:none;
+    }
+    .btn{
+      border:1px solid #aebbd0;
+      background:linear-gradient(180deg, #ffffff 0%, #eff4fb 100%);
+      color:#1f2c3d;
+      border-radius:10px;
+      padding:9px 12px;
+      cursor:pointer;
+      font-weight:700;
+      box-shadow:0 1px 0 rgba(255,255,255,.8) inset;
+    }
+    .btn:hover{border-color:#88a2c5}
+    .btn.primary{
+      background:linear-gradient(180deg, #89aeda 0%, #6f96c7 100%);
+      border-color:#5e87b7;
+      color:#fff;
+    }
+    .btn.danger{
+      background:linear-gradient(180deg, #fff 0%, #fff3f2 100%);
+      border-color:#f5c2bd;
+      color:#7a1c15;
+    }
+    .items-wrap{
+      overflow:auto;
+      border:1px solid var(--line);
+      border-radius:12px;
+    }
+    table{
+      border-collapse:collapse;
+      width:100%;
+    }
+    .items-table th,
+    .items-table td{
+      border:1px solid var(--line);
+      padding:6px 7px;
+      font-size:12px;
+      vertical-align:top;
+    }
+    .items-table th{
+      background:#eef3f9;
+      text-transform:none;
+      letter-spacing:.04em;
+      font-size:11px;
+      text-align:center;
+    }
+    .items-table input{
+      width:100%;
+      border:0;
+      background:transparent;
+      padding:0;
+      outline:none;
+      font:inherit;
+    }
+    .items-table input.desc-input{
+      width:100%;
+      border:0;
+      background:transparent;
+      padding:0;
+      outline:none;
+      font:inherit;
+      line-height:1.35;
+      text-align:left;
+    }
+    .items-table th:nth-child(2),
+    .items-table td:nth-child(2){
+      min-width:420px;
+    }
+    .items-table .num{
+      text-align:center;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .items-table .money{
+      text-align:right;
+      white-space:nowrap;
+      font-variant-numeric:tabular-nums;
+    }
+    .row-actions{
+      display:flex;
+      gap:6px;
+      justify-content:center;
+    }
+    .mini-btn{
+      border:1px solid #c8d1dc;
+      background:#fff;
+      border-radius:8px;
+      padding:4px 8px;
+      cursor:pointer;
+      font-size:12px;
+    }
+    .mini-btn:hover{background:#f4f7fb}
+    .toolbar{
+      position:sticky;
+      bottom:0;
+      z-index:4;
+      margin-top:auto;
+      border-top:1px solid var(--line);
+      background:rgba(255,255,255,.95);
+      backdrop-filter:blur(8px);
+      padding:12px 14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .toolbar .meta{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .toolbar .buttons{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .preview-shell{
+      padding:16px;
+      overflow:auto;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.8), rgba(255,255,255,.55)),
+        repeating-linear-gradient(45deg, rgba(122,161,208,.04) 0 8px, rgba(122,161,208,.02) 8px 16px);
+    }
+    .preview-wrap{
+      min-width:calc(var(--page-w) + 32px);
+      min-height:100%;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+    }
+    .page{
+      width:var(--page-w);
+      min-height:var(--page-h);
+      background:#fff;
+      color:#111;
+      border:1px solid #8e8e8e;
+      box-shadow:0 24px 48px rgba(0,0,0,.10);
+      position:relative;
+      overflow:hidden;
+      font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Source Han Sans SC",Arial,Helvetica,sans-serif;
+    }
+    .page-inner{
+      padding:12mm 11.5mm 11mm;
+    }
+    .top-brand{
+      text-align:center;
+      font-size:24px;
+      line-height:1.08;
+      margin-top:-1mm;
+      margin-bottom:2.5mm;
+    }
+    .top-contact{
+      text-align:center;
+      font-size:13px;
+      line-height:1.2;
+      margin-bottom:4mm;
+    }
+    .invoice-title{
+      text-align:center;
+      font-weight:700;
+      font-size:21px;
+      letter-spacing:.02em;
+      padding:1.6mm 0 1.8mm;
+      border-top:2px solid #111;
+      border-bottom:1.5px solid #111;
+      margin-bottom:0;
+    }
+    .info-table{
+      width:100%;
+      border-collapse:collapse;
+      border-left:1.5px solid #111;
+      border-right:1.5px solid #111;
+      border-bottom:1.5px solid #111;
+      table-layout:fixed;
+    }
+    .info-table td,
+    .info-table th{
+      border:1px solid #111;
+      vertical-align:top;
+    }
+    .info-table .meta td{
+      border-left:none;
+      border-right:none;
+      border-top:none;
+      border-bottom:1px solid #111;
+      padding:4px 6px;
+      font-size:15px;
+      font-weight:700;
+    }
+    .meta-line{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:center;
+      width:100%;
+    }
+    .meta-left,
+    .meta-right{
+      white-space:nowrap;
+    }
+    .info-table .head th{
+      background:#8eb0d9;
+      font-weight:700;
+      font-size:17px;
+      padding:4px 6px;
+      text-align:left;
+    }
+    .info-table .body td{
+      padding:6px 4px 8px;
+      min-height:120px;
+      border:1px solid #111;
+    }
+    .seller-box,
+    .buyer-box{
+      font-size:15px;
+      line-height:1.15;
+      padding:2px 4px;
+      min-height:110px;
+    }
+    .party-line{
+      margin:0 0 2px 0;
+    }
+    .summary-box{
+      border-left:1.5px solid #111;
+      border-right:1.5px solid #111;
+      border-bottom:1.5px solid #111;
+    }
+    .summary-line{
+      display:flex;
+      justify-content:flex-end;
+      align-items:flex-start;
+      gap:14px;
+      padding:3px 6px 3px 0;
+      font-size:15px;
+      line-height:1.15;
+    }
+    .summary-line + .summary-line{
+      border-top:1px solid #111;
+    }
+    .summary-line .label{
+      font-weight:700;
+      min-width:120px;
+      text-align:right;
+    }
+    .section-bar{
+      text-align:center;
+      background:#8eb0d9;
+      border-top:1.5px solid #111;
+      border-bottom:1.5px solid #111;
+      font-size:17px;
+      font-weight:700;
+      padding:2px 0 2px;
+      margin-top:0;
+    }
+    .item-table{
+      width:100%;
+      border-collapse:collapse;
+      border-left:1.5px solid #111;
+      border-right:1.5px solid #111;
+    }
+    .item-table th,
+    .item-table td{
+      border:0;
+      padding:4px 5px;
+      vertical-align:top;
+      font-size:15px;
+      line-height:1.12;
+    }
+    .item-table th:not(:last-child),
+    .item-table td:not(:last-child){
+      border-right:1px solid #111;
+    }
+    .item-table th{
+      font-weight:700;
+      text-align:center;
+      background:#fff;
+    }
+    .item-table thead tr{
+      border-bottom:1px solid #111;
+    }
+    .item-table tbody tr.item-row{
+      border-bottom:1px solid #111;
+    }
+    .item-table .center{text-align:center}
+    .item-table .right{text-align:right}
+    .item-table .mono{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Source Han Sans SC",Arial,Helvetica,sans-serif}
+    .totals{
+      border-left:1.5px solid #111;
+      border-right:1.5px solid #111;
+      border-bottom:1.5px solid #111;
+      display:grid;
+      grid-template-columns:1fr 120px;
+    }
+    .totals .label,
+    .totals .value{
+      border-top:1px solid #111;
+      padding:4px 5px;
+      font-size:15px;
+    }
+    .totals .label{
+      text-align:right;
+      font-weight:700;
+      padding-right:10px;
+    }
+    .totals .value{
+      text-align:right;
+      font-weight:700;
+      font-variant-numeric:tabular-nums;
+    }
+    .detail-block{
+      border-left:1.5px solid #111;
+      border-right:1.5px solid #111;
+      border-bottom:1.5px solid #111;
+      font-size:15px;
+      line-height:1.15;
+    }
+    .detail-block .bar{margin-top:0}
+    .detail-block .content{
+      padding:4px 4px 6px;
+      white-space:pre-line;
+    }
+    .remarks{
+      border-left:1.5px solid #111;
+      border-right:1.5px solid #111;
+      border-bottom:1.5px solid #111;
+      min-height:110px;
+    }
+    .remarks .content{
+      padding:4px 4px 8px;
+      white-space:pre-line;
+      font-size:13px;
+      line-height:1.16;
+    }
+    .remarks .footer-sign{
+      display:grid;
+      grid-template-columns:2.2fr 0.8fr;
+      gap:10px;
+      padding:6px 4px 0;
+      font-size:13px;
+      line-height:1.16;
+      border-top:1px solid #111;
+      margin-top:6px;
+    }
+    .remarks .footer-sign > div:first-child{
+      white-space:nowrap;
+    }
+    .muted{
+      color:#3a3a3a;
+    }
+    .tiny{
+      font-size:12px;
+    }
+    .hidden-print{
+      display:block;
+    }
+    .preview-actions{
+      display:none;
+    }
+    @media (max-width: 1200px){
+      .app{
+        grid-template-columns:1fr;
+        height:auto;
+      }
+      .preview-wrap{
+        min-width:unset;
+        transform:scale(.96);
+        transform-origin:top center;
+      }
+    }
+    @page{
+      size:A4;
+      margin:0;
+    }
+    @media print{
+      *{
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+      }
+      html,body{
+        height:auto;
+        background:#fff;
+      }
+      .editor,.toolbar,.preview-actions{display:none !important}
+      .app{display:block;padding:0}
+      .panel,.preview-shell{border:0;box-shadow:none;background:#fff;padding:0;margin:0}
+      .preview-shell{overflow:visible}
+      .preview-wrap{min-width:unset;transform:none}
+      .page{
+        width:210mm;
+        min-height:297mm;
+        border:none;
+        box-shadow:none;
+        overflow:visible;
+        page-break-after:auto;
+      }
+      thead{display:table-header-group}
+      tfoot{display:table-footer-group}
+      tr,th,td,.item-row,.summary-box,.section-bar,.detail-block,.remarks,img,svg,canvas{
+        break-inside:avoid;
+        page-break-inside:avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="panel editor">
+      <div class="editor-header">
+        <h1 class="title">PROFORMA INVOICE 形式发票生成工具</h1>
+        <p class="subtitle">离线运行，支持实时预览、模板切换、Excel 导出和 PDF 导出。所有逻辑都在浏览器本地完成。</p>
+      </div>
+      <div class="editor-body">
+        <div class="section">
+          <h2>1. 单据基础信息</h2>
+          <div class="section-content basic-grid">
+            <div class="field">
+              <label class="required" for="piBase">PI编号</label>
+              <input id="piBase" data-path="piBase" placeholder="QG20260609" />
+              <div class="hint">系统自动追加后缀 <code>Ha</code>。</div>
+            </div>
+            <div class="field">
+              <label class="required" for="invoiceDate">开票日期</label>
+              <input id="invoiceDate" type="date" data-path="invoiceDate" />
+            </div>
+            <div class="field">
+              <label for="piSuffix">PI编号预览</label>
+              <input id="piSuffix" readonly />
+            </div>
+            <div class="field">
+              <label for="currency">币种</label>
+              <input id="currency" readonly />
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>客户留痕 / 历史版本</h2>
+          <div class="section-content">
+            <div class="field">
+              <label for="revisionNote">本次修改备注</label>
+              <input id="revisionNote" placeholder="例如：客户要求改运费、第二版报价、确认版" />
+              <div class="hint">PDF 是最终成品；这里保存的是可继续编辑的数据源版本。</div>
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label for="historySelect">历史版本</label>
+              <select id="historySelect" class="history-select"></select>
+            </div>
+            <div class="history-actions" style="margin-top:10px">
+              <button class="btn primary" id="saveHistory">保存当前版本</button>
+              <button class="btn" id="loadHistory">打开所选版本</button>
+              <button class="btn danger" id="deleteHistory">删除所选版本</button>
+              <button class="btn" id="exportHistory">导出留痕备份</button>
+              <button class="btn" id="importHistory">导入留痕备份</button>
+              <input class="hidden-file" id="historyFile" type="file" accept="application/json,.json" />
+            </div>
+            <div class="history-meta" id="historyMeta" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>2. 卖方信息区</h2>
+          <div class="section-content grid-2">
+            <div class="field"><label class="required">公司名称</label><input data-path="seller.name" /></div>
+            <div class="field"><label>地址</label><input data-path="seller.address" /></div>
+            <div class="field"><label>电话</label><input data-path="seller.phone" /></div>
+            <div class="field"><label>邮箱</label><input data-path="seller.email" /></div>
+            <div class="field"><label>联系人</label><input data-path="seller.contact" /></div>
+            <div class="field"><label>微信</label><input data-path="seller.wechat" /></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>3. 买家信息区</h2>
+          <div class="section-content grid-2">
+            <div class="field"><label class="required">客户名称</label><input data-path="buyer.name" /></div>
+            <div class="field"><label>门店信息</label><input data-path="buyer.shop" /></div>
+            <div class="field" style="grid-column:1 / -1"><label class="required">收货地址</label><textarea data-path="buyer.address"></textarea></div>
+            <div class="field"><label>联系电话 1</label><input data-path="buyer.phone1" /></div>
+            <div class="field"><label>联系电话 2</label><input data-path="buyer.phone2" /></div>
+            <div class="field"><label>邮箱</label><input data-path="buyer.email" /></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>4. 付款模板</h2>
+          <div class="section-content">
+            <div class="grid-2">
+              <div class="field">
+                <label class="required">模板选择</label>
+                <select id="paymentTemplate" data-path="paymentTemplate">
+                  <option value="alibaba">阿里信保 / Alibaba Trade Assurance</option>
+                  <option value="tt">TT电汇 / Bank Transfer</option>
+                  <option value="alipay">支付宝 / Alipay</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>模板重置</label>
+                <button class="btn" id="resetPayment">重新应用当前模板默认值</button>
+                <div class="hint">除非点击重置，否则手动修改内容不会被模板切换覆盖。</div>
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:10px">
+              <div class="field"><label>付款标题</label><textarea data-path="payment.title" rows="3"></textarea></div>
+              <div class="field"><label>收款方 / 受益人</label><textarea data-path="payment.payee" rows="3"></textarea></div>
+              <div class="field"><label>币种</label><input data-path="payment.currency" /></div>
+              <div class="field"><label>付款规则</label><textarea data-path="payment.rule" rows="5"></textarea></div>
+              <div class="field" style="grid-column:1 / -1"><label>账户 / 银行信息</label><textarea data-path="payment.account" rows="6"></textarea></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>5. 贸易条款</h2>
+          <div class="section-content grid-2">
+            <div class="field"><label>Incoterms 贸易术语</label><input data-path="terms.incoterms" /></div>
+            <div class="field"><label>Delivery time 交期</label><input data-path="terms.delivery" /></div>
+            <div class="field"><label>Payment terms 付款方式</label><input data-path="terms.payment" /></div>
+            <div class="field"><label>Shipping method 运输方式</label><input data-path="terms.shipping" /></div>
+            <div class="field"><label>Packing 包装</label><input data-path="terms.packing" /></div>
+            <div class="field"><label>Warranty 质保</label><input data-path="terms.warranty" /></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>6. 商品明细表</h2>
+          <div class="section-content">
+            <div class="items-wrap">
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px">S.No</th>
+                    <th>商品描述</th>
+                    <th style="width:72px">QTY pcs</th>
+                    <th style="width:118px">Unit Price USD</th>
+                    <th style="width:118px">Total Price USD</th>
+                    <th style="width:96px">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="itemsBody"></tbody>
+              </table>
+            </div>
+            <div class="inline-actions">
+              <button class="btn" id="addItem">????</button>
+            </div>
+            <div class="grid-2" style="margin-top:10px">
+              <div class="field">
+                <label class="required">运费</label>
+                <input data-path="shippingCost" />
+              </div>
+              <div class="field">
+                <label>商品合计</label>
+                <input id="itemsTotal" readonly />
+              </div>
+              <div class="field">
+                <label>最终合计 USD</label>
+                <input id="finalTotal" readonly />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>7. 备注</h2>
+          <div class="section-content">
+            <div class="field">
+              <label>备注内容</label>
+              <textarea data-path="remarks" rows="5"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="meta">
+          纯本地生成，不上传任何数据。
+        </div>
+        <div class="buttons">
+          <button class="btn primary" id="exportXlsx">导出Excel</button>
+          <button class="btn primary" id="exportPdf">导出PDF</button>
+          <button class="btn danger" id="clearAll">清空全部内容</button>
+          <button class="btn" id="copyText">复制PI文本</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel preview-shell">
+      <div class="preview-actions"></div>
+      <div class="preview-wrap">
+        <div class="page">
+          <div class="page-inner" id="preview"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="./xlsx.full.min.js"></script>
+  <script>
+    const TEMPLATE_DATA = {
+      alibaba: {
+        title: "Payment: Credit Assurance Order via Alibaba.com (Alibaba Trade Assurance Order)",
+        payee: "Payee: Shanghai Qingguang Electronic Technology Co., Ltd.",
+        currency: "USD",
+        rule: "Payment Rule:\n100% full payment must be made in a lump sum on the Alibaba Insurance platform before shipment.\nFund will be released to our corporate account after buyer confirms receipt of goods on Alibaba platform.",
+        account: ""
+      },
+      tt: {
+        title: "Beneficiary Name: Shanghai Qingguang Electronic Technology Co., Ltd.",
+        payee: "Beneficiary Account Number: 3996000886846",
+        currency: "USD",
+        rule: "Bank Transfer",
+        account: [
+          "Swift Code: CITIHKHX or CITIHKHXXXX",
+          "Country/Region: HongKong",
+          "Beneficiary Address: 26/F., TOWER ONE, TIME SQUARE 1 MATHESON STREET CAUSEWAY BAY HK",
+          "Beneficiary Bank: CITIBANK, N.A., HONG KONG BRANCH",
+          "Beneficiary Bank Address: Champion Tower, Three Garden Road, Central, Hong Kong",
+          "Bank Code: 006",
+          "Branch Code: 391"
+        ].join("\n")
+      },
+      alipay: {
+        title: "Payment: Alipay",
+        payee: "Payee: Shanghai Qingguang Electronic Technology Co., Ltd.",
+        currency: "USD",
+        rule: "Payment Rule:\nFull 100% payment in advance via Alipay before shipment.",
+        account: ""
+      }
+    };
+
+    const DEFAULT_STATE = () => ({
+      piBase: "QG20260609",
+      invoiceDate: new Date().toISOString().slice(0, 10),
+      seller: {
+        name: "Shanghai Qingguang Electronic Technology CO., LTD.",
+        address: "Hongqiao World Center, Qingpu District, Shanghai",
+        phone: "+86-16602119898",
+        email: "hazelwang@qgkjsh.com",
+        contact: "Hazel Wang",
+        wechat: "+8618772611526"
+      },
+      buyer: {
+        name: "Fal Falou",
+        shop: "Fal Falou",
+        address: "Shop No. A099, Yue Yang Trading Mall (Area B),\nLujing Road, Yuexiu District, Guangzhou",
+        phone1: "0086-19195538504",
+        phone2: "0086-19157423114",
+        email: ""
+      },
+      paymentTemplate: "alipay",
+      payment: {
+        title: TEMPLATE_DATA.alipay.title,
+        payee: TEMPLATE_DATA.alipay.payee,
+        currency: TEMPLATE_DATA.alipay.currency,
+        rule: TEMPLATE_DATA.alipay.rule,
+        account: TEMPLATE_DATA.alipay.account
+      },
+      terms: {
+        incoterms: "EXW",
+        delivery: "Within 7 days after receiving after funds arrive in Alipay account",
+        payment: "100% prepayment",
+        shipping: "Express",
+        packing: "box packing",
+        warranty: "1 year"
+      },
+      items: [
+        { description: "HPE Hard Drive 2.5\" 2TB 12Gb SAS 7.2k", qty: 4, unitPrice: 89.5 }
+      ],
+      shippingCost: 0,
+      remarks:
+        "This contracted prices are only subjected to the aforesaid terms and conditions, the price will be adjusted In case of the above terms and conditions be changed.\n" +
+        "This PI will be canceled or changed in consequence of any Force Majure incidents or political adjustment by the government.\n" +
+        "Seller: Shanghai Qingguang Electronic Technology CO., LTD.\n" +
+        "Buyer:"
+    });
+
+    const state = DEFAULT_STATE();
+    const dirtyPayment = new Set();
+    const HISTORY_STORAGE_KEY = "qg-pi-history-v1";
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    function safeNumber(v){
+      const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    }
+    function money(v){
+      return `$${safeNumber(v).toFixed(2)}`;
+    }
+    function textMoney(v){
+      return money(v);
+    }
+    function totalItems(){
+      return state.items.reduce((sum, item) => sum + safeNumber(item.qty) * safeNumber(item.unitPrice), 0);
+    }
+    function finalTotal(){
+      return totalItems() + safeNumber(state.shippingCost);
+    }
+    function normalizePiBase(v){
+      return String(v || "").trim().replace(/(?:Ha)?$/, "");
+    }
+    function piNumber(){
+      const base = normalizePiBase(state.piBase || "QG20260609");
+      return base.endsWith("Ha") ? base : `${base}Ha`;
+    }
+    function safeFilePart(value){
+      return String(value || "")
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, " ");
+    }
+    function exportBaseName(){
+      const buyerName = safeFilePart(state.buyer?.name);
+      return `PI-${buyerName || piNumber()}`;
+    }
+    function formatInvoiceDate(iso){
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "";
+      const day = d.getDate();
+      const suffix = day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th";
+      const mon = d.toLocaleString("en-US", { month: "short" });
+      return `${String(day).padStart(2, "0")}${suffix},${mon},${d.getFullYear()}`;
+    }
+    function displayLines(value){
+      return String(value || "").replace(/\n/g, "<br>");
+    }
+    function previewTextLines(value){
+      return String(value || "").replace(/\n/g, "<br>");
+    }
+    function applyTemplate(templateKey, force = false){
+      const tpl = TEMPLATE_DATA[templateKey] || TEMPLATE_DATA.alipay;
+      const setField = (key, value) => {
+        if (force || !dirtyPayment.has(key)) state.payment[key] = value;
+      };
+      setField("title", tpl.title);
+      setField("payee", tpl.payee);
+      setField("currency", tpl.currency);
+      setField("rule", tpl.rule);
+      setField("account", tpl.account);
+      syncFormValues();
+      render();
+    }
+    function syncFormValues(){
+      $$("[data-path]").forEach((el) => {
+        const path = el.getAttribute("data-path");
+        const value = getByPath(state, path);
+        if (el.type === "date") {
+          el.value = value || "";
+        } else if (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.tagName === "SELECT") {
+          el.value = value ?? "";
+        }
+      });
+      $("#piSuffix").value = piNumber();
+      $("#currency").value = state.payment.currency;
+      $("#itemsTotal").value = money(totalItems());
+      $("#finalTotal").value = money(finalTotal());
+    }
+    function getByPath(obj, path){
+      return path.split(".").reduce((acc, part) => acc && acc[part], obj);
+    }
+    function setByPath(obj, path, value){
+      const parts = path.split(".");
+      const last = parts.pop();
+      const target = parts.reduce((acc, part) => acc[part], obj);
+      target[last] = value;
+    }
+    function addItem(data = { description: "", qty: 1, unitPrice: 0 }){
+      state.items.push({ ...data });
+      render();
+    }
+    function removeItem(index){
+      state.items.splice(index, 1);
+      if (!state.items.length) state.items.push({ description: "", qty: 1, unitPrice: 0 });
+      render();
+    }
+    function renderItems(){
+      const tbody = $("#itemsBody");
+      tbody.innerHTML = state.items.map((item, index) => `
+        <tr>
+          <td class="num">${index + 1}</td>
+          <td><input class="desc-input" data-item-field="description" data-item-index="${index}" value="${escapeHtml(item.description)}" placeholder="Product description" /></td>
+          <td><input data-item-field="qty" data-item-index="${index}" value="${escapeHtml(item.qty)}" class="num" /></td>
+          <td><input data-item-field="unitPrice" data-item-index="${index}" value="${escapeHtml(item.unitPrice)}" class="money" /></td>
+          <td class="money">${money(safeNumber(item.qty) * safeNumber(item.unitPrice))}</td>
+          <td>
+            <div class="row-actions">
+              <button class="mini-btn" data-remove-item="${index}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+
+      tbody.querySelectorAll("[data-item-field]").forEach((input) => {
+        input.addEventListener("input", () => {
+          const index = Number(input.getAttribute("data-item-index"));
+          const field = input.getAttribute("data-item-field");
+          let value = input.value;
+          if (field === "qty" || field === "unitPrice") value = safeNumber(value);
+          state.items[index][field] = value;
+          render();
+        });
+      });
+      tbody.querySelectorAll("[data-remove-item]").forEach((btn) => {
+        btn.addEventListener("click", () => removeItem(Number(btn.getAttribute("data-remove-item"))));
+      });
+    }
+    function renderPreview(){
+      const paymentLines = state.payment.account ? `<div>${previewTextLines(state.payment.account)}</div>` : "";
+      const itemRows = state.items.map((item, index) => `
+        <tr class="item-row">
+          <td class="center">${index + 1}</td>
+              <td class="mono">${escapeHtml(item.description).replace(/\\n/g, "<br>")}</td>
+          <td class="center">${Number(item.qty || 0)}</td>
+          <td class="right">${money(item.unitPrice)}</td>
+          <td class="right">${money(safeNumber(item.qty) * safeNumber(item.unitPrice))}</td>
+        </tr>
+      `).join("");
+      $("#preview").innerHTML = `
+        <div class="top-brand">${escapeHtml(state.seller.name)}</div>
+        <div class="top-contact">Contact:${escapeHtml(state.seller.contact)}&nbsp;&nbsp; WeChat:${escapeHtml(state.seller.wechat)}&nbsp;&nbsp; Email: ${escapeHtml(state.seller.email)}</div>
+        <table class="info-table">
+          <tr class="meta">
+            <td colspan="2">
+              <div class="meta-line">
+                <span class="meta-left"><strong>Invoice Number:</strong>${escapeHtml(piNumber())}</span>
+                <span class="meta-right"><strong>Date:</strong>${escapeHtml(formatInvoiceDate(state.invoiceDate))}</span>
+              </div>
+            </td>
+          </tr>
+          <tr class="head">
+            <th style="width:53%">Seller</th>
+            <th style="width:47%">Buyer</th>
+          </tr>
+          <tr class="body">
+            <td class="seller-box">
+              <div class="party-line">${escapeHtml(state.seller.name)}</div>
+              <div class="party-line">address:${escapeHtml(state.seller.address)}</div>
+              <div class="party-line">T: ${escapeHtml(state.seller.phone)}</div>
+              <div class="party-line">E: ${escapeHtml(state.seller.email)}</div>
+            </td>
+            <td class="buyer-box">
+              <div class="party-line">Bill To : ${escapeHtml(state.buyer.name)}</div>
+              <div class="party-line">Address :</div>
+              <div class="party-line">${escapeHtml(state.buyer.address).replace(/\\n/g, "<br>")}</div>
+              <div class="party-line">Tel：${escapeHtml(state.buyer.phone1)}</div>
+              <div class="party-line">${escapeHtml(state.buyer.phone2)}</div>
+              <div class="party-line">Email：${escapeHtml(state.buyer.email)}</div>
+            </td>
+          </tr>
+        </table>
+        <table class="item-table">
+          <thead>
+            <tr>
+              <th style="width:44px">S.NO</th>
+              <th>COMMODITY DESCRIPTION (Detailed configuration in attachment)</th>
+              <th style="width:58px">QTY<br>pcs</th>
+              <th style="width:114px">UNIT PRICE USD</th>
+              <th style="width:118px">TOTAL PRICE USD</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+          </tbody>
+        </table>
+        <div class="summary-box">
+          <div class="summary-line">
+            <span class="label">Shipping cost</span>
+            <span>${money(state.shippingCost)}</span>
+          </div>
+          <div class="summary-line">
+            <span class="label">Total</span>
+            <span>${money(finalTotal())}</span>
+          </div>
+        </div>
+        <div class="section-bar">TRADING TERMS:</div>
+        <div class="detail-block">
+          <div class="content">${escapeHtml(state.payment.title).replace(/\\n/g, "<br>")}<br>${escapeHtml(state.payment.payee).replace(/\\n/g, "<br>")}<br>Settlement Currency: ${escapeHtml(state.payment.currency)}<br>${escapeHtml(state.payment.rule).replace(/\\n/g, "<br>")}${paymentLines ? "<br>" + paymentLines : ""}</div>
+        </div>
+        <div class="section-bar">TERMS AND CONDITONS:</div>
+        <div class="detail-block">
+          <div class="content">1.Incoterms : ${escapeHtml(state.terms.incoterms)}<br>2.Delivery time: ${escapeHtml(state.terms.delivery)}<br>3.Payment terms: ${escapeHtml(state.terms.payment)}<br>4.Shipping method: ${escapeHtml(state.terms.shipping)}<br>5.Packing: ${escapeHtml(state.terms.packing)}<br>6.Warranty: ${escapeHtml(state.terms.warranty)}</div>
+        </div>
+        <div class="section-bar">REMARKS:</div>
+        <div class="remarks">
+          <div class="content">${escapeHtml(state.remarks).replace(/\\n/g, "<br>")}</div>
+        </div>
+      `;
+    }
+    function render(){
+      syncFormValues();
+      renderItems();
+      renderPreview();
+    }
+    function escapeHtml(value){
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      }[ch]));
+    }
+
+    function clonePlain(value){
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function mergeDefaults(base, patch){
+      Object.keys(patch || {}).forEach((key) => {
+        const value = patch[key];
+        if (
+          value &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          base[key] &&
+          typeof base[key] === "object" &&
+          !Array.isArray(base[key])
+        ) {
+          mergeDefaults(base[key], value);
+        } else {
+          base[key] = value;
+        }
+      });
+      return base;
+    }
+
+    function makeHistoryId(){
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return `pi-history-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function loadHistoryRecords(){
+      try{
+        const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+        if (!raw) return [];
+        const records = JSON.parse(raw);
+        return Array.isArray(records) ? records : [];
+      } catch (error){
+        console.error("读取客户留痕失败:", error);
+        return [];
+      }
+    }
+
+    function saveHistoryRecords(records){
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(records));
+    }
+
+    function formatHistoryTime(iso){
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    function historyLabel(record){
+      const customer = record.customer || "未填写客户";
+      const pi = record.piNumber || "未填写PI";
+      const note = record.note ? ` | ${record.note}` : "";
+      return `${formatHistoryTime(record.savedAt)} | ${customer} | ${pi} | ${money(record.total || 0)}${note}`;
+    }
+
+    function groupedHistory(records){
+      const groups = new Map();
+      records.forEach((record) => {
+        const key = record.customer || "未填写客户";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(record);
+      });
+      return Array.from(groups.entries());
+    }
+
+    function renderHistoryOptions(selectedId = ""){
+      const select = $("#historySelect");
+      const meta = $("#historyMeta");
+      if (!select || !meta) return;
+      const records = loadHistoryRecords().sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+      select.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "请选择历史版本";
+      select.appendChild(placeholder);
+      groupedHistory(records).forEach(([customer, customerRecords]) => {
+        const group = document.createElement("optgroup");
+        group.label = `${customer} (${customerRecords.length})`;
+        customerRecords.forEach((record) => {
+          const option = document.createElement("option");
+          option.value = record.id;
+          option.textContent = `${formatHistoryTime(record.savedAt)} | ${record.piNumber || "未填写PI"} | ${money(record.total || 0)}${record.note ? ` | ${record.note}` : ""}`;
+          group.appendChild(option);
+        });
+        select.appendChild(group);
+      });
+      select.value = selectedId;
+      if (!records.length){
+        meta.textContent = "暂无历史记录。保存当前版本后，以后客户要求修改时就能从这里打开继续改。";
+        return;
+      }
+      meta.innerHTML = `
+        <div><strong>当前客户：</strong>${escapeHtml(state.buyer?.name || "未填写客户")}</div>
+        <div><strong>当前PI：</strong>${escapeHtml(piNumber())}</div>
+        <div><strong>已保存：</strong>${records.length} 条历史版本，按客户分组显示</div>
+        <div><strong>最近一条：</strong>${escapeHtml(historyLabel(records[0]))}</div>
+      `;
+    }
+
+    function buildHistoryRecord(note){
+      return {
+        id: makeHistoryId(),
+        savedAt: new Date().toISOString(),
+        customer: String(state.buyer?.name || "").trim(),
+        piNumber: piNumber(),
+        invoiceDate: state.invoiceDate,
+        note: String(note || "").trim(),
+        total: finalTotal(),
+        data: clonePlain(state)
+      };
+    }
+
+    function saveCurrentVersion(note, options = {}){
+      const { silent = false } = options;
+      try{
+        const noteField = $("#revisionNote");
+        const typedNote = noteField ? noteField.value.trim() : "";
+        const record = buildHistoryRecord(note ?? typedNote);
+        const records = loadHistoryRecords();
+        records.unshift(record);
+        saveHistoryRecords(records.slice(0, 300));
+        renderHistoryOptions(record.id);
+        if (!silent){
+          if (noteField) noteField.value = "";
+          alert(`已保存当前版本：${record.customer || "未填写客户"} / ${record.piNumber}`);
+        }
+        return record;
+      } catch (error){
+        console.error("保存客户留痕失败:", error);
+        if (!silent) alert(`保存客户留痕失败：${error.message || error}`);
+        return null;
+      }
+    }
+
+    function applyHistoryState(data){
+      const nextState = mergeDefaults(DEFAULT_STATE(), clonePlain(data || {}));
+      Object.keys(state).forEach((key) => delete state[key]);
+      Object.assign(state, nextState);
+      dirtyPayment.clear();
+      syncFormValues();
+      render();
+    }
+
+    function loadSelectedVersion(){
+      const select = $("#historySelect");
+      const id = select ? select.value : "";
+      if (!id){
+        alert("请先选择一条历史版本。");
+        return;
+      }
+      const record = loadHistoryRecords().find((item) => item.id === id);
+      if (!record){
+        alert("没有找到这条历史版本，可能已经被删除。");
+        renderHistoryOptions();
+        return;
+      }
+      const ok = confirm(`打开历史版本：\n${historyLabel(record)}\n\n当前页面未保存的内容会被覆盖，确定打开吗？`);
+      if (!ok) return;
+      applyHistoryState(record.data);
+      renderHistoryOptions(id);
+      alert("已打开历史版本。你现在可以在这版基础上继续修改，再重新导出PDF。");
+    }
+
+    function deleteSelectedVersion(){
+      const select = $("#historySelect");
+      const id = select ? select.value : "";
+      if (!id){
+        alert("请先选择要删除的历史版本。");
+        return;
+      }
+      const records = loadHistoryRecords();
+      const record = records.find((item) => item.id === id);
+      if (!record){
+        renderHistoryOptions();
+        return;
+      }
+      const ok = confirm(`确定删除这条历史版本吗？\n${historyLabel(record)}`);
+      if (!ok) return;
+      saveHistoryRecords(records.filter((item) => item.id !== id));
+      renderHistoryOptions();
+    }
+
+    function downloadJsonFile(filename, payload){
+      const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function exportHistoryBackup(){
+      const records = loadHistoryRecords();
+      if (!records.length){
+        alert("暂无客户留痕记录，不需要导出备份。");
+        return;
+      }
+      const payload = JSON.stringify({
+        app: "QG PI Generator",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        records
+      }, null, 2);
+      const today = new Date().toISOString().slice(0, 10);
+      downloadJsonFile(`PI客户留痕备份-${today}.json`, payload);
+    }
+
+    function importHistoryBackup(file){
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const parsed = JSON.parse(String(reader.result || ""));
+          const incoming = Array.isArray(parsed) ? parsed : parsed.records;
+          if (!Array.isArray(incoming)) throw new Error("备份文件格式不正确。");
+          const normalized = incoming
+            .filter((record) => record && record.data)
+            .map((record) => ({
+              ...record,
+              id: record.id || makeHistoryId(),
+              savedAt: record.savedAt || new Date().toISOString()
+            }));
+          if (!normalized.length) throw new Error("备份文件里没有可导入的历史版本。");
+          const byId = new Map(loadHistoryRecords().map((record) => [record.id, record]));
+          normalized.forEach((record) => byId.set(record.id, record));
+          const merged = Array.from(byId.values()).sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+          saveHistoryRecords(merged);
+          renderHistoryOptions();
+          alert(`已导入 ${normalized.length} 条客户留痕记录。`);
+        } catch (error){
+          console.error("导入客户留痕失败:", error);
+          alert(`导入客户留痕失败：${error.message || error}`);
+        }
+      };
+      reader.onerror = () => alert("读取备份文件失败，请重新选择文件。");
+      reader.readAsText(file, "utf-8");
+    }
+
+    function bindInputs(){
+      $$("[data-path]").forEach((el) => {
+        const path = el.getAttribute("data-path");
+        const isPaymentField = path.startsWith("payment.");
+        el.addEventListener("input", () => {
+          let value = el.value;
+          if (el.type === "date") value = el.value;
+          if (path === "shippingCost") value = safeNumber(value);
+          if (path === "piBase") value = String(value).trim();
+          if (path === "paymentTemplate") {
+            state.paymentTemplate = value;
+            applyTemplate(value, false);
+            return;
+          }
+          if (path.startsWith("payment.")) {
+            const key = path.split(".")[1];
+            dirtyPayment.add(key);
+          }
+          setByPath(state, path, value);
+          if (path === "piBase" || path === "invoiceDate" || path === "shippingCost") {
+            $("#piSuffix").value = piNumber();
+            $("#itemsTotal").value = money(totalItems());
+            $("#finalTotal").value = money(finalTotal());
+          }
+          renderPreview();
+          if (path.startsWith("payment.") || path === "shippingCost") {
+            $("#currency").value = state.payment.currency;
+          }
+        });
+      });
+      $("#addItem").addEventListener("click", () => addItem());
+      $("#clearAll").addEventListener("click", () => {
+        Object.assign(state, DEFAULT_STATE());
+        dirtyPayment.clear();
+        syncFormValues();
+        render();
+      });
+      $("#resetPayment").addEventListener("click", () => {
+        const tpl = state.paymentTemplate || "alipay";
+        dirtyPayment.clear();
+        applyTemplate(tpl, true);
+      });
+      $("#saveHistory").addEventListener("click", () => saveCurrentVersion());
+      $("#loadHistory").addEventListener("click", loadSelectedVersion);
+      $("#deleteHistory").addEventListener("click", deleteSelectedVersion);
+      $("#exportHistory").addEventListener("click", exportHistoryBackup);
+      $("#importHistory").addEventListener("click", () => $("#historyFile").click());
+      $("#historyFile").addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (file) importHistoryBackup(file);
+        event.target.value = "";
+      });
+      $("#copyText").addEventListener("click", async () => {
+        const text = buildPlainText();
+        await navigator.clipboard.writeText(text);
+      });
+      $("#exportPdf").addEventListener("click", () => downloadPdf());
+      $("#exportXlsx").addEventListener("click", () => downloadXlsx());
+    }
+
+    function buildPlainText(){
+      return [
+        "PROFORMA INVOICE",
+        `Invoice Number: ${piNumber()} Date: ${formatInvoiceDate(state.invoiceDate)}`,
+        `Seller: ${state.seller.name}`,
+        `Buyer: ${state.buyer.name}`,
+        `Terms: ${state.terms.incoterms}, ${state.terms.delivery}, ${state.terms.payment}, ${state.terms.shipping}, ${state.terms.packing}, ${state.terms.warranty}`,
+        `Items total: ${money(totalItems())}`,
+        `Shipping cost: ${money(state.shippingCost)}`,
+        `Final total: ${money(finalTotal())}`
+      ].join("\n");
+    }
+
+    // ---------- Export helpers ----------
+    function getExportItems(){
+      return state.items
+        .map((item) => ({
+          description: String(item.description || "").trim(),
+          qty: safeNumber(item.qty),
+          unitPrice: safeNumber(item.unitPrice),
+          total: safeNumber(item.qty) * safeNumber(item.unitPrice)
+        }))
+        .filter((item) => item.description || item.qty || item.unitPrice);
+    }
+
+    function ensureExportData(){
+      const items = getExportItems();
+      if (!items.length){
+        throw new Error("请至少填写一条商品明细后再导出。");
+      }
+      if (!String(state.buyer.name || "").trim()){
+        throw new Error("请填写客户名称后再导出。");
+      }
+      return items;
+    }
+
+    function exportError(error, action){
+      const message = error && error.message ? error.message : String(error || "未知错误");
+      console.error(`${action}失败:`, error);
+      alert(`${action}失败：${message}`);
+    }
+
+    function splitLines(value){
+      return String(value || "")
+        .split(/\r?\n/)
+        .map((line) => line.trimEnd());
+    }
+
+    function worksheetRows(items){
+      const rows = [];
+      const add = (...cells) => {
+        const row = {};
+        ["A", "B", "C", "D", "E"].forEach((key, index) => {
+          row[key] = cells[index] ?? "";
+        });
+        rows.push(row);
+      };
+      const sellerBlock = [
+        state.seller.name,
+        `address:${state.seller.address}`,
+        `T: ${state.seller.phone}`,
+        `E: ${state.seller.email}`
+      ].join("\n");
+      const buyerBlock = [
+        `Bill To : ${state.buyer.name}`,
+        "Address :",
+        state.buyer.address,
+        `Tel : ${state.buyer.phone1}`,
+        state.buyer.phone2,
+        `Email: ${state.buyer.email || ""}`
+      ].filter(Boolean).join("\n");
+      const paymentBlock = [
+        state.payment.title,
+        state.payment.payee,
+        `Settlement Currency: ${state.payment.currency}`,
+        state.payment.rule,
+        state.payment.account
+      ].filter(Boolean).join("\n");
+      const termsBlock = [
+        `1.Incoterms : ${state.terms.incoterms}`,
+        `2.Delivery time: ${state.terms.delivery}`,
+        `3.Payment terms: ${state.terms.payment}`,
+        `4.Shipping method: ${state.terms.shipping}`,
+        `5.Packing: ${state.terms.packing}`,
+        `6.Warranty: ${state.terms.warranty}`
+      ].join("\n");
+
+      add(`${state.seller.name}\nContact:${state.seller.contact}  WeChat:${state.seller.wechat}  Email: ${state.seller.email}`);
+      add("PROFORMA INVOICE");
+      add(`Invoice Number:${piNumber()}`, "", `Date:${formatInvoiceDate(state.invoiceDate)}`);
+      add("Seller", "", "Buyer");
+      add(state.seller.name, "", state.buyer.name);
+      add(sellerBlock, "", buyerBlock);
+      add("S.NO", "COMMODITY DESCRIPTION (Detailed configuration in attachment)", "QTY\npcs", "UNIT PRICE USD", "TOTAL PRICE USD");
+      items.forEach((item, index) => {
+        add(index + 1, item.description, item.qty, item.unitPrice, item.total);
+      });
+      add("Shipping cost", "", "", "", safeNumber(state.shippingCost));
+      add("", "Total", "", "", finalTotal());
+      add("TRADING TERMS:");
+      add(paymentBlock);
+      add("TERMS AND CONDITIONS:");
+      add(termsBlock);
+      add("REMARKS:");
+      add(state.remarks);
+      return rows;
+    }
+
+    function autoFitColumns(rows){
+      const keys = ["A", "B", "C", "D", "E"];
+      return keys.map((key) => {
+        const maxLen = rows.reduce((max, row) => {
+          const cell = row[key];
+          const longest = String(cell ?? "")
+            .split(/\r?\n/)
+            .reduce((innerMax, line) => Math.max(innerMax, line.length), 0);
+          return Math.max(max, longest);
+        }, key.length);
+        return { wch: Math.min(Math.max(maxLen + 2, key === "B" ? 42 : 10), key === "B" ? 70 : 24) };
+      });
+    }
+
+    async function downloadPdf(){
+      try{
+        ensureExportData();
+        const revisionNote = $("#revisionNote") ? $("#revisionNote").value.trim() : "";
+        saveCurrentVersion(revisionNote || "导出PDF自动保存", { silent: true });
+        if (document.fonts && document.fonts.ready){
+          await document.fonts.ready;
+        }
+        const oldTitle = document.title;
+        document.title = `${exportBaseName()}.pdf`;
+        window.print();
+        setTimeout(() => { document.title = oldTitle; }, 1000);
+      } catch (error){
+        exportError(error, "PDF导出");
+      }
+    }
+
+    async function downloadXlsx(){
+      try{
+        const items = ensureExportData();
+        if (!window.XLSX){
+          throw new Error("SheetJS库未加载，请确认 xlsx.full.min.js 与 index.html 在同一文件夹。");
+        }
+        const rows = worksheetRows(items);
+        const worksheet = XLSX.utils.json_to_sheet(rows, {
+          header: ["A", "B", "C", "D", "E"],
+          skipHeader: true
+        });
+        const itemStartRow = 8;
+        const itemEndRow = itemStartRow + items.length - 1;
+        const shippingRow = itemEndRow + 1;
+        const totalRow = shippingRow + 1;
+        worksheet["!merges"] = [
+          { s:{ r:0, c:0 }, e:{ r:0, c:4 } },
+          { s:{ r:1, c:0 }, e:{ r:1, c:4 } },
+          { s:{ r:2, c:0 }, e:{ r:2, c:1 } },
+          { s:{ r:2, c:2 }, e:{ r:2, c:4 } },
+          { s:{ r:3, c:0 }, e:{ r:3, c:1 } },
+          { s:{ r:3, c:2 }, e:{ r:3, c:4 } },
+          { s:{ r:4, c:0 }, e:{ r:4, c:1 } },
+          { s:{ r:4, c:2 }, e:{ r:4, c:4 } },
+          { s:{ r:5, c:0 }, e:{ r:5, c:1 } },
+          { s:{ r:5, c:2 }, e:{ r:5, c:4 } },
+          { s:{ r:shippingRow - 1, c:0 }, e:{ r:shippingRow - 1, c:3 } },
+          { s:{ r:totalRow - 1, c:1 }, e:{ r:totalRow - 1, c:3 } },
+          { s:{ r:totalRow, c:0 }, e:{ r:totalRow, c:4 } },
+          { s:{ r:totalRow + 1, c:0 }, e:{ r:totalRow + 1, c:4 } },
+          { s:{ r:totalRow + 2, c:0 }, e:{ r:totalRow + 2, c:4 } },
+          { s:{ r:totalRow + 3, c:0 }, e:{ r:totalRow + 3, c:4 } },
+          { s:{ r:totalRow + 4, c:0 }, e:{ r:totalRow + 4, c:4 } },
+          { s:{ r:totalRow + 5, c:0 }, e:{ r:totalRow + 5, c:4 } }
+        ];
+        worksheet["!cols"] = autoFitColumns(rows);
+        worksheet["!rows"] = rows.map((row) => {
+          const lines = Object.values(row).reduce((max, value) => Math.max(max, splitLines(value).length), 1);
+          return { hpt: Math.min(Math.max(lines * 18, 22), 140) };
+        });
+        ["D", "E"].forEach((col) => {
+          for (let row = itemStartRow; row <= totalRow; row += 1){
+            const ref = `${col}${row}`;
+            if (worksheet[ref] && typeof worksheet[ref].v === "number"){
+              worksheet[ref].z = "$#,##0.00";
+            }
+          }
+        });
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "形式发票");
+        XLSX.writeFile(workbook, `${exportBaseName()}.xlsx`, {
+          bookType: "xlsx",
+          compression: true
+        });
+      } catch (error){
+        exportError(error, "Excel导出");
+      }
+    }
+
+    // init
+    applyTemplate(state.paymentTemplate, true);
+    bindInputs();
+    render();
+    $("#paymentTemplate").value = state.paymentTemplate;
+    $("#piSuffix").value = piNumber();
+    $("#currency").value = state.payment.currency;
+    $("#itemsTotal").value = money(totalItems());
+    $("#finalTotal").value = money(finalTotal());
+    renderHistoryOptions();
+  </script>
+</body>
+</html>
