@@ -784,6 +784,8 @@
   </div>
 
   <script src="./xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script>
     const TEMPLATE_DATA = {
       alibaba: {
@@ -901,6 +903,9 @@
     function exportBaseName(){
       const buyerName = safeFilePart(state.buyer?.name);
       return `PI-${buyerName || piNumber()}`;
+    }
+    function isMobileDevice(){
+      return window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     }
     function formatInvoiceDate(iso){
       const d = new Date(iso);
@@ -1441,6 +1446,86 @@
         .map((line) => line.trimEnd());
     }
 
+    function waitForImages(root){
+      const images = Array.from(root.querySelectorAll("img"));
+      return Promise.all(images.map((img) => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = img.onerror = resolve;
+        });
+      }));
+    }
+
+    function getPdfLib(){
+      const lib = window.jspdf && (window.jspdf.jsPDF || window.jspdf.default);
+      if (!lib) throw new Error("jsPDF库未加载，请检查网络或CDN是否可访问。");
+      return lib;
+    }
+
+    async function exportPdfFromCanvas(){
+      if (!window.html2canvas){
+        throw new Error("html2canvas库未加载，请检查网络或CDN是否可访问。");
+      }
+      const source = document.querySelector(".page");
+      if (!source) throw new Error("找不到PDF导出区域。");
+      const clone = source.cloneNode(true);
+      const exportWrap = document.createElement("div");
+      exportWrap.style.position = "fixed";
+      exportWrap.style.left = "-10000px";
+      exportWrap.style.top = "0";
+      exportWrap.style.width = "210mm";
+      exportWrap.style.background = "#fff";
+      exportWrap.style.pointerEvents = "none";
+      exportWrap.appendChild(clone);
+      document.body.appendChild(exportWrap);
+      try{
+        await waitForImages(clone);
+        if (document.fonts && document.fonts.ready){
+          await document.fonts.ready;
+        }
+        const canvas = await html2canvas(clone, {
+          scale: Math.max(2, window.devicePixelRatio || 1),
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          allowTaint: false,
+          logging: false,
+          scrollY: -window.scrollY
+        });
+        const jsPDF = getPdfLib();
+        const pdf = new jsPDF("p", "mm", "a4");
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const marginX = 0;
+        const marginTop = 0;
+        const marginBottom = 0;
+        const usableWidth = pageWidth - marginX * 2;
+        const usableHeight = pageHeight - marginTop - marginBottom;
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = usableWidth / imgWidth;
+        const pagePixelHeight = Math.floor(usableHeight / ratio);
+        let rendered = 0;
+        let pageIndex = 0;
+        while (rendered < imgHeight){
+          const sliceHeight = Math.min(pagePixelHeight, imgHeight - rendered);
+          const slice = document.createElement("canvas");
+          slice.width = imgWidth;
+          slice.height = sliceHeight;
+          const ctx = slice.getContext("2d");
+          ctx.drawImage(canvas, 0, rendered, imgWidth, sliceHeight, 0, 0, imgWidth, sliceHeight);
+          const imgData = slice.toDataURL("image/png");
+          if (pageIndex > 0) pdf.addPage();
+          const drawHeight = sliceHeight * ratio;
+          pdf.addImage(imgData, "PNG", marginX, marginTop, usableWidth, drawHeight);
+          rendered += sliceHeight;
+          pageIndex += 1;
+        }
+        pdf.save(`${exportBaseName()}.pdf`);
+      } finally {
+        document.body.removeChild(exportWrap);
+      }
+    }
+
     function worksheetRows(items){
       const rows = [];
       const add = (...cells) => {
@@ -1519,16 +1604,20 @@
       try{
         ensureExportData();
         const revisionNote = $("#revisionNote") ? $("#revisionNote").value.trim() : "";
-        saveCurrentVersion(revisionNote || "导出PDF自动保存", { silent: true });
+        saveCurrentVersion(revisionNote || "瀵煎嚭PDF鑷姩淇濆瓨", { silent: true });
         if (document.fonts && document.fonts.ready){
           await document.fonts.ready;
+        }
+        if (isMobileDevice()){
+          await exportPdfFromCanvas();
+          return;
         }
         const oldTitle = document.title;
         document.title = `${exportBaseName()}.pdf`;
         window.print();
         setTimeout(() => { document.title = oldTitle; }, 1000);
       } catch (error){
-        exportError(error, "PDF导出");
+        exportError(error, "PDF瀵煎嚭");
       }
     }
 
