@@ -243,7 +243,7 @@
       outline:none;
       font:inherit;
     }
-    .items-table input.desc-input{
+    .items-table textarea.desc-input{
       width:100%;
       border:0;
       background:transparent;
@@ -252,10 +252,14 @@
       font:inherit;
       line-height:1.35;
       text-align:left;
+      resize:vertical;
+      min-height:88px;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
     }
     .items-table th:nth-child(2),
     .items-table td:nth-child(2){
-      min-width:420px;
+      min-width:560px;
     }
     .items-table .num{
       text-align:center;
@@ -481,6 +485,11 @@
     .item-table .center{text-align:center}
     .item-table .right{text-align:right}
     .item-table .mono{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Source Han Sans SC",Arial,Helvetica,sans-serif}
+    .item-table .desc-cell{
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
     .totals{
       border-left:1.5px solid #111;
       border-right:1.5px solid #111;
@@ -683,8 +692,9 @@
           <div class="section-content">
             <div class="grid-2">
               <div class="field">
-                <label class="required">模板选择</label>
+                <label>模板选择</label>
                 <select id="paymentTemplate" data-path="paymentTemplate">
+                  <option value="">不选择模板 / 手动填写</option>
                   <option value="alibaba">阿里信保 / Alibaba Trade Assurance</option>
                   <option value="tt">TT电汇 / Bank Transfer</option>
                   <option value="alipay">支付宝 / Alipay</option>
@@ -825,9 +835,11 @@
       }
     };
 
-    const DEFAULT_STATE = () => ({
-      piBase: "QG20260609",
-      invoiceDate: new Date().toISOString().slice(0, 10),
+    const DEFAULT_STATE = () => {
+      const invoiceDate = new Date().toISOString().slice(0, 10);
+      return {
+      piBase: invoiceDateToPiBase(invoiceDate),
+      invoiceDate,
       seller: {
         name: "Shanghai Qingguang Electronic Technology CO., LTD.",
         address: "Hongqiao World Center, Qingpu District, Shanghai",
@@ -869,7 +881,8 @@
         "This PI will be canceled or changed in consequence of any Force Majure incidents or political adjustment by the government.\n" +
         "Seller: Shanghai Qingguang Electronic Technology CO., LTD.\n" +
         "Buyer:"
-    });
+      };
+    };
 
     const state = DEFAULT_STATE();
     const dirtyPayment = new Set();
@@ -898,6 +911,7 @@
     }
     function piNumber(){
       const base = normalizePiBase(state.piBase || "QG20260609");
+      if (!base) return "";
       return base.endsWith("Ha") ? base : `${base}Ha`;
     }
     function safeFilePart(value){
@@ -921,6 +935,10 @@
       const mon = d.toLocaleString("en-US", { month: "short" });
       return `${String(day).padStart(2, "0")}${suffix},${mon},${d.getFullYear()}`;
     }
+    function invoiceDateToPiBase(iso){
+      const match = String(iso || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return match ? `QG${match[1]}${match[2]}${match[3]}` : "";
+    }
     function displayLines(value){
       return String(value || "").replace(/\n/g, "<br>");
     }
@@ -928,6 +946,16 @@
       return String(value || "").replace(/\n/g, "<br>");
     }
     function applyTemplate(templateKey, force = false){
+      if (!templateKey){
+        state.payment.title = "";
+        state.payment.payee = "";
+        state.payment.currency = "USD";
+        state.payment.rule = "";
+        state.payment.account = "";
+        syncFormValues();
+        render();
+        return;
+      }
       const tpl = TEMPLATE_DATA[templateKey] || TEMPLATE_DATA.alipay;
       const setField = (key, value) => {
         if (force || !dirtyPayment.has(key)) state.payment[key] = value;
@@ -978,7 +1006,7 @@
       tbody.innerHTML = state.items.map((item, index) => `
         <tr>
           <td class="num">${index + 1}</td>
-          <td><input class="desc-input" data-item-field="description" data-item-index="${index}" value="${escapeHtml(item.description)}" placeholder="Product description" /></td>
+          <td><textarea class="desc-input" data-item-field="description" data-item-index="${index}" rows="4" placeholder="Product description">${escapeHtml(item.description)}</textarea></td>
           <td><input data-item-field="qty" data-item-index="${index}" value="${escapeHtml(item.qty)}" class="num" /></td>
           <td><input data-item-field="unitPrice" data-item-index="${index}" value="${escapeHtml(item.unitPrice)}" class="money" /></td>
           <td class="money">${money(safeNumber(item.qty) * safeNumber(item.unitPrice))}</td>
@@ -1009,7 +1037,7 @@
       const itemRows = state.items.map((item, index) => `
         <tr class="item-row">
           <td class="center">${index + 1}</td>
-              <td class="mono">${escapeHtml(item.description).replace(/\\n/g, "<br>")}</td>
+          <td class="mono desc-cell">${escapeHtml(item.description).replace(/\n/g, "<br>")}</td>
           <td class="center">${Number(item.qty || 0)}</td>
           <td class="right">${money(item.unitPrice)}</td>
           <td class="right">${money(safeNumber(item.qty) * safeNumber(item.unitPrice))}</td>
@@ -1043,7 +1071,7 @@
             <td class="buyer-box">
               <div class="party-line">Bill To : ${escapeHtml(state.buyer.name)}</div>
               <div class="party-line">Address :</div>
-              <div class="party-line">${escapeHtml(state.buyer.address).replace(/\\n/g, "<br>")}</div>
+              <div class="party-line">${escapeHtml(state.buyer.address).replace(/\n/g, "<br>")}</div>
               <div class="party-line">Tel：${escapeHtml(state.buyer.phone1)}</div>
               <div class="party-line">${escapeHtml(state.buyer.phone2)}</div>
               <div class="party-line">Email：${escapeHtml(state.buyer.email)}</div>
@@ -1076,7 +1104,7 @@
         </div>
         <div class="section-bar">TRADING TERMS:</div>
         <div class="detail-block">
-          <div class="content">${escapeHtml(state.payment.title).replace(/\\n/g, "<br>")}<br>${escapeHtml(state.payment.payee).replace(/\\n/g, "<br>")}<br>Settlement Currency: ${escapeHtml(state.payment.currency)}<br>${escapeHtml(state.payment.rule).replace(/\\n/g, "<br>")}${paymentLines ? "<br>" + paymentLines : ""}</div>
+          <div class="content">${escapeHtml(state.payment.title).replace(/\n/g, "<br>")}<br>${escapeHtml(state.payment.payee).replace(/\n/g, "<br>")}<br>Settlement Currency: ${escapeHtml(state.payment.currency)}<br>${escapeHtml(state.payment.rule).replace(/\n/g, "<br>")}${paymentLines ? "<br>" + paymentLines : ""}</div>
         </div>
         <div class="section-bar">TERMS AND CONDITONS:</div>
         <div class="detail-block">
@@ -1084,7 +1112,7 @@
         </div>
         <div class="section-bar">REMARKS:</div>
         <div class="remarks">
-          <div class="content">${escapeHtml(state.remarks).replace(/\\n/g, "<br>")}</div>
+          <div class="content">${escapeHtml(state.remarks).replace(/\n/g, "<br>")}</div>
         </div>
       `;
     }
@@ -1244,6 +1272,15 @@
       const nextState = mergeDefaults(DEFAULT_STATE(), clonePlain(data || {}));
       Object.keys(state).forEach((key) => delete state[key]);
       Object.assign(state, nextState);
+      const syncedPiBase = invoiceDateToPiBase(state.invoiceDate);
+      if (syncedPiBase) {
+        state.piBase = syncedPiBase;
+      } else {
+        const match = String(state.piBase || "").trim().match(/^QG(\d{4})(\d{2})(\d{2})(?:Ha)?$/i);
+        if (match) {
+          state.invoiceDate = `${match[1]}-${match[2]}-${match[3]}`;
+        }
+      }
       dirtyPayment.clear();
       syncFormValues();
       render();
@@ -1349,7 +1386,6 @@
     function bindInputs(){
       $$("[data-path]").forEach((el) => {
         const path = el.getAttribute("data-path");
-        const isPaymentField = path.startsWith("payment.");
         el.addEventListener("input", () => {
           let value = el.value;
           if (el.type === "date") value = el.value;
@@ -1357,6 +1393,17 @@
           if (path === "piBase") value = String(value).trim();
           if (path === "paymentTemplate") {
             state.paymentTemplate = value;
+            if (!value){
+              dirtyPayment.clear();
+              state.payment.title = "";
+              state.payment.payee = "";
+              state.payment.currency = "USD";
+              state.payment.rule = "";
+              state.payment.account = "";
+              syncFormValues();
+              renderPreview();
+              return;
+            }
             applyTemplate(value, false);
             return;
           }
@@ -1365,6 +1412,13 @@
             dirtyPayment.add(key);
           }
           setByPath(state, path, value);
+          if (path === "invoiceDate") {
+            state.piBase = invoiceDateToPiBase(value);
+          }
+          if (path === "piBase") {
+            const match = String(value || "").trim().match(/^QG(\d{4})(\d{2})(\d{2})(?:Ha)?$/i);
+            if (match) state.invoiceDate = `${match[1]}-${match[2]}-${match[3]}`;
+          }
           if (path === "piBase" || path === "invoiceDate" || path === "shippingCost") {
             $("#piSuffix").value = piNumber();
             $("#itemsTotal").value = money(totalItems());
@@ -1384,9 +1438,18 @@
         render();
       });
       $("#resetPayment").addEventListener("click", () => {
-        const tpl = state.paymentTemplate || "alipay";
         dirtyPayment.clear();
-        applyTemplate(tpl, true);
+        if (!state.paymentTemplate){
+          state.payment.title = "";
+          state.payment.payee = "";
+          state.payment.currency = "USD";
+          state.payment.rule = "";
+          state.payment.account = "";
+          syncFormValues();
+          renderPreview();
+          return;
+        }
+        applyTemplate(state.paymentTemplate, true);
       });
       $("#saveHistory").addEventListener("click", () => saveCurrentVersion());
       $("#loadHistory").addEventListener("click", loadSelectedVersion);
