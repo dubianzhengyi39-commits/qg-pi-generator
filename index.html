@@ -483,18 +483,12 @@
       border-bottom:1px solid #111;
     }
     .item-table .center{text-align:center}
-    .item-table .right{text-align:center}
+    .item-table .right{text-align:right}
     .item-table .mono{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Source Han Sans SC",Arial,Helvetica,sans-serif}
     .item-table .desc-cell{
       white-space:pre-wrap;
       overflow-wrap:anywhere;
       word-break:break-word;
-    }
-    .item-table tbody td.center,
-    .item-table tbody td.right,
-    .item-table tbody td.num,
-    .item-table tbody td.money{
-      vertical-align:middle;
     }
     .totals{
       border-left:1.5px solid #111;
@@ -640,7 +634,7 @@
             </div>
             <div class="field">
               <label for="currency">币种</label>
-              <input id="currency" readonly />
+              <input id="currency" data-path="invoiceCurrency" placeholder="USD" />
             </div>
           </div>
         </div>
@@ -761,11 +755,11 @@
                 <input data-path="shippingCost" />
               </div>
               <div class="field">
-                <label>商品合计</label>
+                <label id="itemsTotalLabel">商品合计 USD</label>
                 <input id="itemsTotal" readonly />
               </div>
               <div class="field">
-                <label>最终合计 USD</label>
+                <label id="finalTotalLabel">最终合计 USD</label>
                 <input id="finalTotal" readonly />
               </div>
             </div>
@@ -846,6 +840,7 @@
       return {
       piBase: invoiceDateToPiBase(invoiceDate),
       invoiceDate,
+      invoiceCurrency: "USD",
       seller: {
         name: "Shanghai Qingguang Electronic Technology CO., LTD.",
         address: "Hongqiao World Center, Qingpu District, Shanghai",
@@ -901,7 +896,9 @@
       return Number.isFinite(n) ? n : 0;
     }
     function money(v){
-      return `$${safeNumber(v).toFixed(2)}`;
+      const currency = String(state.invoiceCurrency || "USD").trim().toUpperCase();
+      const symbol = currency === "CNY" || currency === "RMB" ? "¥" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency === "HKD" ? "HK$" : "$";
+      return `${symbol}${safeNumber(v).toFixed(2)}`;
     }
     function textMoney(v){
       return money(v);
@@ -985,7 +982,12 @@
         }
       });
       $("#piSuffix").value = piNumber();
-      $("#currency").value = state.payment.currency;
+      $("#currency").value = state.invoiceCurrency || "USD";
+      const currencyLabel = String(state.invoiceCurrency || "USD").trim().toUpperCase() || "USD";
+      const itemsTotalLabel = $("#itemsTotalLabel");
+      const finalTotalLabel = $("#finalTotalLabel");
+      if (itemsTotalLabel) itemsTotalLabel.textContent = `商品合计 ${currencyLabel}`;
+      if (finalTotalLabel) finalTotalLabel.textContent = `最终合计 ${currencyLabel}`;
       $("#itemsTotal").value = money(totalItems());
       $("#finalTotal").value = money(finalTotal());
     }
@@ -1430,9 +1432,12 @@
             $("#itemsTotal").value = money(totalItems());
             $("#finalTotal").value = money(finalTotal());
           }
+          if (path === "invoiceCurrency") {
+            syncFormValues();
+          }
           renderPreview();
-          if (path.startsWith("payment.") || path === "shippingCost") {
-            $("#currency").value = state.payment.currency;
+          if (path.startsWith("payment.") || path === "shippingCost" || path === "invoiceCurrency") {
+            $("#currency").value = state.invoiceCurrency || "USD";
           }
         });
       });
@@ -1763,7 +1768,7 @@
     render();
     $("#paymentTemplate").value = state.paymentTemplate;
     $("#piSuffix").value = piNumber();
-    $("#currency").value = state.payment.currency;
+    $("#currency").value = state.invoiceCurrency || "USD";
     $("#itemsTotal").value = money(totalItems());
     $("#finalTotal").value = money(finalTotal());
     renderHistoryOptions();
