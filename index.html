@@ -747,12 +747,20 @@
               </table>
             </div>
             <div class="inline-actions">
-              <button class="btn" id="addItem">????</button>
+              <button class="btn" id="addItem">新增商品</button>
             </div>
             <div class="grid-2" style="margin-top:10px">
               <div class="field">
                 <label class="required">运费</label>
                 <input data-path="shippingCost" />
+              </div>
+              <div class="field" style="grid-column:1 / -1">
+                <label>其他费用</label>
+                <div id="additionalChargesBody"></div>
+                <div class="inline-actions" style="margin-top:8px">
+                  <button class="btn" id="addAdditionalCharge" type="button">添加其他费用</button>
+                </div>
+                <div class="hint">可添加税费、手续费等，格式会和 Shipping cost 一样显示在PI里。</div>
               </div>
               <div class="field">
                 <label id="itemsTotalLabel">商品合计 USD</label>
@@ -877,6 +885,7 @@
         { description: "HPE Hard Drive 2.5\" 2TB 12Gb SAS 7.2k", qty: 4, unitPrice: 89.5 }
       ],
       shippingCost: 0,
+      additionalCharges: [],
       remarks:
         "This contracted prices are only subjected to the aforesaid terms and conditions, the price will be adjusted In case of the above terms and conditions be changed.\n" +
         "This PI will be canceled or changed in consequence of any Force Majure incidents or political adjustment by the government.\n" +
@@ -906,8 +915,20 @@
     function totalItems(){
       return state.items.reduce((sum, item) => sum + safeNumber(item.qty) * safeNumber(item.unitPrice), 0);
     }
+    function additionalChargesList(){
+      const rows = Array.isArray(state.additionalCharges) ? state.additionalCharges : [];
+      return rows
+        .map((row) => ({
+          label: String(row && row.label ? row.label : "").trim(),
+          amount: safeNumber(row && row.amount)
+        }))
+        .filter((row) => row.label || row.amount);
+    }
+    function additionalChargesTotal(){
+      return additionalChargesList().reduce((sum, row) => sum + row.amount, 0);
+    }
     function finalTotal(){
-      return totalItems() + safeNumber(state.shippingCost);
+      return totalItems() + safeNumber(state.shippingCost) + additionalChargesTotal();
     }
     function normalizePiBase(v){
       return String(v || "").trim().replace(/(?:Ha)?$/, "");
@@ -1040,6 +1061,42 @@
         btn.addEventListener("click", () => removeItem(Number(btn.getAttribute("data-remove-item"))));
       });
     }
+    function renderAdditionalCharges(){
+      const body = $("#additionalChargesBody");
+      if (!body) return;
+      if (!Array.isArray(state.additionalCharges)) state.additionalCharges = [];
+      body.innerHTML = state.additionalCharges.map((charge, index) => `
+        <div class="grid-2" style="margin-top:${index ? 8 : 0}px">
+          <div class="field">
+            <label>费用名称</label>
+            <input data-charge-field="label" data-charge-index="${index}" value="${escapeHtml(charge.label || "")}" placeholder="Additional Tax" />
+          </div>
+          <div class="field">
+            <label>金额</label>
+            <input data-charge-field="amount" data-charge-index="${index}" value="${escapeHtml(charge.amount ?? "")}" placeholder="0" />
+          </div>
+          <div class="field" style="grid-column:1 / -1">
+            <button class="mini-btn" data-remove-charge="${index}" type="button">删除此费用</button>
+          </div>
+        </div>
+      `).join("");
+
+      body.querySelectorAll("[data-charge-field]").forEach((input) => {
+        input.addEventListener("input", () => {
+          const index = Number(input.getAttribute("data-charge-index"));
+          const field = input.getAttribute("data-charge-field");
+          state.additionalCharges[index][field] = field === "amount" ? safeNumber(input.value) : input.value;
+          syncFormValues();
+          renderPreview();
+        });
+      });
+      body.querySelectorAll("[data-remove-charge]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.additionalCharges.splice(Number(btn.getAttribute("data-remove-charge")), 1);
+          render();
+        });
+      });
+    }
     function renderPreview(){
       const paymentLines = state.payment.account ? `<div>${previewTextLines(state.payment.account)}</div>` : "";
       const itemRows = state.items.map((item, index) => `
@@ -1105,6 +1162,12 @@
             <span class="label">Shipping cost</span>
             <span>${money(state.shippingCost)}</span>
           </div>
+          ${additionalChargesList().map((charge) => `
+          <div class="summary-line">
+            <span class="label">${escapeHtml(charge.label || "Additional fee")}</span>
+            <span>${money(charge.amount)}</span>
+          </div>
+          `).join("")}
           <div class="summary-line">
             <span class="label">Total</span>
             <span>${money(finalTotal())}</span>
@@ -1127,6 +1190,7 @@
     function render(){
       syncFormValues();
       renderItems();
+      renderAdditionalCharges();
       renderPreview();
     }
     function escapeHtml(value){
@@ -1280,6 +1344,7 @@
       const nextState = mergeDefaults(DEFAULT_STATE(), clonePlain(data || {}));
       Object.keys(state).forEach((key) => delete state[key]);
       Object.assign(state, nextState);
+      if (!Array.isArray(state.additionalCharges)) state.additionalCharges = [];
       const syncedPiBase = invoiceDateToPiBase(state.invoiceDate);
       if (syncedPiBase) {
         state.piBase = syncedPiBase;
@@ -1442,6 +1507,11 @@
         });
       });
       $("#addItem").addEventListener("click", () => addItem());
+      $("#addAdditionalCharge").addEventListener("click", () => {
+        if (!Array.isArray(state.additionalCharges)) state.additionalCharges = [];
+        state.additionalCharges.push({ label: "", amount: 0 });
+        render();
+      });
       $("#clearAll").addEventListener("click", () => {
         Object.assign(state, DEFAULT_STATE());
         dirtyPayment.clear();
@@ -1489,6 +1559,7 @@
         `Terms: ${state.terms.incoterms}, ${state.terms.delivery}, ${state.terms.payment}, ${state.terms.shipping}, ${state.terms.packing}, ${state.terms.warranty}`,
         `Items total: ${money(totalItems())}`,
         `Shipping cost: ${money(state.shippingCost)}`,
+        ...additionalChargesList().map((charge) => `${charge.label || "Additional fee"}: ${money(charge.amount)}`),
         `Final total: ${money(finalTotal())}`
       ].join("\n");
     }
@@ -1658,6 +1729,9 @@
         add(index + 1, item.description, item.qty, item.unitPrice, item.total);
       });
       add("Shipping cost", "", "", "", safeNumber(state.shippingCost));
+      additionalChargesList().forEach((charge) => {
+        add(charge.label || "Additional fee", "", "", "", safeNumber(charge.amount));
+      });
       add("", "Total", "", "", finalTotal());
       add("TRADING TERMS:");
       add(paymentBlock);
@@ -1686,7 +1760,7 @@
       try{
         ensureExportData();
         const revisionNote = $("#revisionNote") ? $("#revisionNote").value.trim() : "";
-        saveCurrentVersion(revisionNote || "瀵煎嚭PDF鑷姩淇濆瓨", { silent: true });
+        saveCurrentVersion(revisionNote || "导出PDF自动保存", { silent: true });
         if (document.fonts && document.fonts.ready){
           await document.fonts.ready;
         }
@@ -1699,7 +1773,7 @@
         window.print();
         setTimeout(() => { document.title = oldTitle; }, 1000);
       } catch (error){
-        exportError(error, "PDF瀵煎嚭");
+        exportError(error, "PDF导出");
       }
     }
 
@@ -1717,8 +1791,9 @@
         const itemStartRow = 8;
         const itemEndRow = itemStartRow + items.length - 1;
         const shippingRow = itemEndRow + 1;
-        const totalRow = shippingRow + 1;
-        worksheet["!merges"] = [
+        const chargeCount = additionalChargesList().length;
+        const totalRow = shippingRow + chargeCount + 1;
+        const merges = [
           { s:{ r:0, c:0 }, e:{ r:0, c:4 } },
           { s:{ r:1, c:0 }, e:{ r:1, c:4 } },
           { s:{ r:2, c:0 }, e:{ r:2, c:1 } },
@@ -1730,6 +1805,11 @@
           { s:{ r:5, c:0 }, e:{ r:5, c:1 } },
           { s:{ r:5, c:2 }, e:{ r:5, c:4 } },
           { s:{ r:shippingRow - 1, c:0 }, e:{ r:shippingRow - 1, c:3 } },
+        ];
+        for (let i = 0; i < chargeCount; i += 1){
+          merges.push({ s:{ r:shippingRow + i, c:0 }, e:{ r:shippingRow + i, c:3 } });
+        }
+        merges.push(
           { s:{ r:totalRow - 1, c:1 }, e:{ r:totalRow - 1, c:3 } },
           { s:{ r:totalRow, c:0 }, e:{ r:totalRow, c:4 } },
           { s:{ r:totalRow + 1, c:0 }, e:{ r:totalRow + 1, c:4 } },
@@ -1737,7 +1817,8 @@
           { s:{ r:totalRow + 3, c:0 }, e:{ r:totalRow + 3, c:4 } },
           { s:{ r:totalRow + 4, c:0 }, e:{ r:totalRow + 4, c:4 } },
           { s:{ r:totalRow + 5, c:0 }, e:{ r:totalRow + 5, c:4 } }
-        ];
+        );
+        worksheet["!merges"] = merges;
         worksheet["!cols"] = autoFitColumns(rows);
         worksheet["!rows"] = rows.map((row) => {
           const lines = Object.values(row).reduce((max, value) => Math.max(max, splitLines(value).length), 1);
