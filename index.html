@@ -1038,7 +1038,7 @@
           <td><textarea class="desc-input" data-item-field="description" data-item-index="${index}" rows="4" placeholder="Product description">${escapeHtml(item.description)}</textarea></td>
           <td><input data-item-field="qty" data-item-index="${index}" value="${escapeHtml(item.qty)}" class="num" /></td>
           <td><input data-item-field="unitPrice" data-item-index="${index}" value="${escapeHtml(item.unitPrice)}" class="money" /></td>
-          <td class="money">${money(safeNumber(item.qty) * safeNumber(item.unitPrice))}</td>
+          <td class="money" data-item-total="${index}">${money(safeNumber(item.qty) * safeNumber(item.unitPrice))}</td>
           <td>
             <div class="row-actions">
               <button class="mini-btn" data-remove-item="${index}">Delete</button>
@@ -1054,7 +1054,11 @@
           let value = input.value;
           if (field === "qty" || field === "unitPrice") value = safeNumber(value);
           state.items[index][field] = value;
-          render();
+          const totalCell = tbody.querySelector(`[data-item-total="${index}"]`);
+          if (totalCell) totalCell.textContent = money(safeNumber(state.items[index].qty) * safeNumber(state.items[index].unitPrice));
+          $("#itemsTotal").value = money(totalItems());
+          $("#finalTotal").value = money(finalTotal());
+          renderPreview();
         });
       });
       tbody.querySelectorAll("[data-remove-item]").forEach((btn) => {
