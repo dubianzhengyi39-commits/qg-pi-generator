@@ -634,7 +634,11 @@
             </div>
             <div class="field">
               <label for="currency">币种</label>
-              <input id="currency" data-path="invoiceCurrency" placeholder="USD" />
+              <input id="currency" data-path="invoiceCurrency" list="currencyOptions" placeholder="USD" />
+              <datalist id="currencyOptions">
+                <option value="USD">美元</option>
+                <option value="RMB">人民币</option>
+              </datalist>
             </div>
           </div>
         </div>
